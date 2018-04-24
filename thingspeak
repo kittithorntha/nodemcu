@@ -1,0 +1,70 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <DHT.h>
+#define DHTTYPE DHT22
+#define DHTPIN 2
+
+const char* ssid = ""; //your WiFi Name
+const char* password = "";  //Your Wifi Password
+const char* key = "";
+
+DHT dht(DHTPIN, DHTTYPE, 11); // 11 works fine for ESP8266
+
+void setup(void)
+{
+  // You can open the Arduino IDE Serial Monitor window to see what the code is doing
+  Serial.begin(115200);  // Serial connection from ESP-01 via 3.3v console cable
+  dht.begin();           // initialize temperature sensor
+
+  IPAddress ip(192, 168, 1, 200);
+  IPAddress gateway(192, 168, 1, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  IPAddress dns(8, 8, 8, 8);
+  WiFi.config(ip, dns, gateway, subnet);
+  WiFi.begin(ssid, password);
+  Serial.print("\n\r \n\rWorking to connect");
+
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("DHT Weather Reading Server");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+ 
+void loop(void)
+{
+  ln();
+} 
+
+void ln() {
+  WiFiClientSecure client;
+
+  if (!client.connect("api.thingspeak.com", 443)) {
+    Serial.println("connection failed");
+    return;   
+  }
+
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+
+    if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  String http = "";
+  http = "GET /update?api_key=" + String(key);
+  http += "&field1=" + String((int)t);
+  http += "&field2=" + String((int)h);
+  http += " HTTP/1.1\r\n";
+  http += "Host: api.thingspeak.com\r\n";
+  http += "Connection: close\r\n\r\n";
+  Serial.println(http);
+  client.print(http);
+  delay(5000);
+}
